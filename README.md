@@ -194,6 +194,39 @@ bash scripts/run_liveportrait_ec2.sh
 
 LivePortrait 코드는 MIT 라이선스지만 기본 얼굴 검출에 포함된 InsightFace 가중치는 비상업 연구 조건입니다. 상용화 시에는 허가된 검출 모델로 교체해야 합니다.
 
+## 한 명 전용 학습 데이터 준비
+
+현재 `person_01` 한 명으로 전체 학습 흐름이 성립하는지 확인하기 위한 bootstrap 데이터셋 builder입니다. 먼저 로컬에서 렌더링 없이 입력 수와 예상 프레임을 점검할 수 있습니다.
+
+```bash
+uv run dataset-build
+```
+
+EC2에서는 준비된 LivePortrait 환경으로 `assets/source/`의 모든 영상을 순서대로 구동합니다.
+
+```bash
+bash scripts/build_dataset_ec2.sh
+```
+
+생성 결과:
+
+- `outputs/datasets/person_01/manifest.json`: 입력 영상, 생성 상태, 예상·생성 프레임 수와 준비 상태
+- `outputs/datasets/person_01/driving/`: 길이를 제한하고 오디오를 제거한 motion driver
+- `outputs/datasets/person_01/generated/`: `person_01`에 움직임을 전달한 영상
+- `outputs/datasets/person_01/pairs.jsonl`: 원본 driver와 생성 영상의 프레임별 대응 인덱스
+
+기본값은 각 영상 전체, `animation_region=all`, 한 명 전용 과적합 실험의 최소 목표 750프레임입니다. 이미 생성된 영상은 재사용하므로 중단 후 같은 명령을 다시 실행해도 됩니다. 다시 만들려면 `--overwrite`를 붙입니다. 실행 시간을 먼저 제한하고 싶으면 `DATASET_MAX_SECONDS=10`처럼 지정합니다.
+
+```bash
+bash scripts/build_dataset_ec2.sh --overwrite
+```
+
+```bash
+DATASET_MAX_SECONDS=10 bash scripts/build_dataset_ec2.sh
+```
+
+현재 데이터는 한 identity에 모델이 과적합될 수 있는지 확인하는 용도입니다. 범용 face swap 성능을 의미하지 않으며, LivePortrait 특유의 왜곡도 학습될 수 있으므로 이후 실제 사용 권리가 확보된 데이터와 다른 생성 경로를 추가해야 합니다.
+
 ## JSONL 레코드
 
 한 줄이 하나의 영상 프레임입니다. 좌표는 MediaPipe의 정규화 좌표이며, 얼굴이 검출되지 않은 프레임은 `detected: false`, `faces: []`로 기록합니다.
