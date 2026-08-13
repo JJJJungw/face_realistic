@@ -126,6 +126,25 @@ FACE_SWAP_PROVIDER=cuda bash scripts/run_swap_ec2.sh
 
 CUDA 및 ONNX Runtime 버전 호환성은 EC2의 NVIDIA 드라이버 이미지에 맞춰야 합니다. CPU 인스턴스에서는 기본 `--provider auto`가 CPU를 선택합니다.
 
+### 원본 표정 픽셀 보존 실험
+
+InSwapper가 약화한 입 모양과 눈 깜빡임을 복구하기 위해 MediaPipe 랜드마크로 원본 눈·눈꺼풀·입술·입 내부를 soft mask 합성하는 실험입니다. 기존 swap 결과를 덮지 않습니다.
+
+```bash
+FACE_SWAP_PROVIDER=cuda bash scripts/run_passthrough_ec2.sh
+```
+
+출력은 `outputs/swap_passthrough.mp4`와 `outputs/swap_passthrough.json`입니다. 기본 보존 범위는 눈 `1.15`, 입 `1.35`, feather는 검출 얼굴 너비의 `1.2%`입니다. 면적을 키우면 표정과 가림은 더 보존되지만 원본 신원 누출 위험도 커집니다.
+
+```bash
+PASSTHROUGH_EYE_EXPANSION=1.1 \
+PASSTHROUGH_MOUTH_EXPANSION=1.2 \
+PASSTHROUGH_FEATHER_RATIO=0.01 \
+FACE_SWAP_PROVIDER=cuda bash scripts/run_passthrough_ec2.sh
+```
+
+이 방식은 최종 익명화 해법이 아니라 원본 픽셀 보존 가설을 검증하는 통제 실험입니다. 결과는 생성 모델과 다른 얼굴 인식기로 원본 신원 유사도를 반드시 다시 측정해야 합니다.
+
 ## LivePortrait 표정 보존 기준선
 
 InSwapper 결과에서 줄어든 입 벌림과 표정 강도를 검증하기 위해, 공식 LivePortrait로 대체 얼굴 이미지를 원본 영상의 움직임으로 구동합니다. 기존 프로젝트 `.venv`와 분리된 `third_party/LivePortrait/.venv`를 사용하므로 같은 EC2의 다른 프로젝트 패키지에는 영향을 주지 않습니다.

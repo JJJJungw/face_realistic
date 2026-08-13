@@ -12,6 +12,9 @@ from typing import Any
 
 import cv2
 
+from face_realistic.io.model import ensure_face_landmarker_model
+from face_realistic.swap.passthrough import make_performance_mask, restore_performance_regions
+
 
 @dataclass(frozen=True, slots=True)
 class SwapSummary:
@@ -26,6 +29,12 @@ class SwapSummary:
     processing_fps: float
     realtime_factor: float
     audio_muxed: bool
+    performance_passthrough: bool
+    passthrough_frames: int
+    landmark_failures: int
+    eye_expansion: float
+    mouth_expansion: float
+    feather_ratio: float
     model_license: str
 
 
@@ -42,6 +51,25 @@ def _load_insightface() -> Any:
             "Face swap 의존성이 없습니다. `uv sync --extra dev --extra swap`을 실행하세요."
         ) from exc
     return insightface, FaceAnalysis
+
+
+def _create_performance_landmarker(model_path: Path) -> tuple[Any, Any]:
+    try:
+        import mediapipe as mp
+    except ImportError as exc:
+        raise RuntimeError("MediaPipe가 없어 performance pass-through를 사용할 수 없습니다.") from exc
+    ensure_face_landmarker_model(model_path)
+    options = mp.tasks.vision.FaceLandmarkerOptions(
+        base_options=mp.tasks.BaseOptions(model_asset_path=str(model_path.resolve())),
+        running_mode=mp.tasks.vision.RunningMode.VIDEO,
+        num_faces=1,
+        min_face_detection_confidence=0.5,
+        min_face_presence_confidence=0.5,
+        min_tracking_confidence=0.5,
+        output_face_blendshapes=False,
+        output_facial_transformation_matrixes=False,
+    )
+    return mp, mp.tasks.vision.FaceLandmarker.create_from_options(options)
 
 
 def resolve_providers(mode: str) -> list[str]:
@@ -120,6 +148,11 @@ def run_face_swap(
     swapper_model_path: Path,
     max_seconds: float | None = 3.0,
     provider: str = "auto",
+    preserve_performance: bool = False,
+    landmarker_model_path: Path = Path("models/face_landmarker.task"),
+    eye_expansion: float = 1.15,
+    mouth_expansion: float = 1.35,
+    feather_ratio: float = 0.012,
 ) -> SwapSummary:
     """원본 영상의 가장 큰 얼굴을 지정한 대체 ID로 교체한다."""
     insightface, FaceAnalysis = _load_insightface()
@@ -132,6 +165,10 @@ def run_face_swap(
             f"InSwapper 모델이 없습니다: {swapper_model_path}\n"
             "InsightFace에서 허가된 연구/상용 모델을 내려받아 해당 경로에 배치하세요."
         )
+    if eye_expansion < 1.0 or mouth_expansion < 1.0:
+        raise ValueError("eye_expansion과 mouth_expansion은 1.0 이상이어야 합니다.")
+    if feather_ratio < 0:
+        raise ValueError("feather_ratio는 0 이상이어야 합니다.")
 
     providers = resolve_providers(provider)
     analysis = FaceAnalysis(
@@ -147,6 +184,10 @@ def run_face_swap(
     if source_image is None:
         raise RuntimeError(f"대체 ID 이미지를 읽지 못했습니다: {source_identity_path}")
     source_face = _largest_face(analysis.get(source_image, max_num=1))
+    mp = None
+    landmarker = None
+    if preserve_performance:
+        mp, landmarker = _create_performance_landmarker(landmarker_model_path)
 
     capture = cv2.VideoCapture(str(input_path))
     if not capture.isOpened():
@@ -165,6 +206,9 @@ def run_face_swap(
     records: list[dict[str, Any]] = []
     processed = 0
     swapped = 0
+    passthrough_frames = 0
+    landmark_failures = 0
+    previous_timestamp = -1
     started = time.perf_counter()
     try:
         while frame_limit is None or processed < frame_limit:
@@ -177,14 +221,43 @@ def run_face_swap(
                 "timestamp_ms": round(processed * 1000.0 / fps),
                 "swapped": False,
             }
-            faces = analysis.get(frame, max_num=1)
+            original_frame = frame.copy()
+            performance_landmarks = None
+            if landmarker is not None and mp is not None:
+                timestamp_ms = max(previous_timestamp + 1, round(processed * 1000.0 / fps))
+                previous_timestamp = timestamp_ms
+                rgb = cv2.cvtColor(original_frame, cv2.COLOR_BGR2RGB)
+                media_image = mp.Image(
+                    image_format=mp.ImageFormat.SRGB,
+                    data=rgb.copy(),
+                )
+                landmark_result = landmarker.detect_for_video(media_image, timestamp_ms)
+                if landmark_result.face_landmarks:
+                    performance_landmarks = landmark_result.face_landmarks[0]
+                else:
+                    landmark_failures += 1
+
+            faces = analysis.get(original_frame, max_num=1)
             if faces:
                 target_face = _largest_face(faces)
-                frame = swapper.get(frame, target_face, source_face, paste_back=True)
+                frame = swapper.get(original_frame, target_face, source_face, paste_back=True)
                 swapped += 1
                 record["swapped"] = True
                 record["target_bbox"] = [round(float(value), 2) for value in target_face.bbox]
                 record["detection_score"] = round(float(target_face.det_score), 6)
+                if performance_landmarks is not None:
+                    face_width = max(float(target_face.bbox[2] - target_face.bbox[0]), 1.0)
+                    alpha = make_performance_mask(
+                        performance_landmarks,
+                        (width, height),
+                        eye_expansion=eye_expansion,
+                        mouth_expansion=mouth_expansion,
+                        feather_pixels=max(1.0, face_width * feather_ratio),
+                    )
+                    frame = restore_performance_regions(original_frame, frame, alpha)
+                    passthrough_frames += 1
+                    record["performance_passthrough"] = True
+                    record["passthrough_area_ratio"] = round(float(alpha.mean()), 7)
             else:
                 record["error"] = "face_not_detected"
             record["processing_ms"] = round((time.perf_counter() - frame_started) * 1000.0, 3)
@@ -194,6 +267,8 @@ def run_face_swap(
     finally:
         capture.release()
         writer.release()
+        if landmarker is not None:
+            landmarker.close()
 
     elapsed = time.perf_counter() - started
     duration = processed / fps if fps else 0.0
@@ -210,7 +285,18 @@ def run_face_swap(
         processing_fps=round(processed / elapsed, 3) if elapsed else 0.0,
         realtime_factor=round(elapsed / duration, 3) if duration else 0.0,
         audio_muxed=audio_muxed,
-        model_license="InsightFace pretrained models: non-commercial research unless separately licensed",
+        performance_passthrough=preserve_performance,
+        passthrough_frames=passthrough_frames,
+        landmark_failures=landmark_failures,
+        eye_expansion=eye_expansion,
+        mouth_expansion=mouth_expansion,
+        feather_ratio=feather_ratio,
+        model_license=(
+            "InsightFace pretrained models: non-commercial research unless separately licensed; "
+            "verify the MediaPipe task-model license before commercial use"
+            if preserve_performance
+            else "InsightFace pretrained models: non-commercial research unless separately licensed"
+        ),
     )
     report_path = output_path.with_suffix(".json")
     report_path.write_text(
