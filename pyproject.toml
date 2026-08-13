@@ -27,6 +27,7 @@ face-track = "face_realistic.cli:main"
 identity-register = "face_realistic.identity.cli:main"
 identity-embed = "face_realistic.identity.embedding_cli:main"
 face-swap = "face_realistic.swap.cli:main"
+liveportrait-run = "face_realistic.performance.liveportrait:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

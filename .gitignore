@@ -5,6 +5,7 @@ __pycache__/
 .ruff_cache/
 .venv/
 venv/
+third_party/
 .DS_Store
 
 # 로컬 모델과 생성 결과

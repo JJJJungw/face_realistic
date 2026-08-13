@@ -126,6 +126,44 @@ FACE_SWAP_PROVIDER=cuda bash scripts/run_swap_ec2.sh
 
 CUDA 및 ONNX Runtime 버전 호환성은 EC2의 NVIDIA 드라이버 이미지에 맞춰야 합니다. CPU 인스턴스에서는 기본 `--provider auto`가 CPU를 선택합니다.
 
+## LivePortrait 표정 보존 기준선
+
+InSwapper 결과에서 줄어든 입 벌림과 표정 강도를 검증하기 위해, 공식 LivePortrait로 대체 얼굴 이미지를 원본 영상의 움직임으로 구동합니다. 기존 프로젝트 `.venv`와 분리된 `third_party/LivePortrait/.venv`를 사용하므로 같은 EC2의 다른 프로젝트 패키지에는 영향을 주지 않습니다.
+
+EC2에서 코드를 `git pull`한 다음 최초 한 번만 설치합니다. PyTorch CUDA 패키지와 모델 가중치를 내려받기 때문에 시간이 걸릴 수 있습니다.
+
+```bash
+cd ~/face_realistic
+bash scripts/setup_liveportrait_ec2.sh
+```
+
+설치 스크립트는 Python 3.10 전용 환경을 만들고 공식 LivePortrait 저장소와 가중치를 준비한 뒤 CUDA 인식 여부를 검사합니다. 시스템 NVIDIA 드라이버는 변경하지 않습니다.
+
+앞 3초 기준선을 실행합니다.
+
+```bash
+bash scripts/run_liveportrait_ec2.sh
+```
+
+생성 결과:
+
+- `outputs/liveportrait_baseline.mp4`: 원본의 표정·입·눈·머리 움직임으로 구동한 대체 얼굴 영상과 원본 오디오
+- `outputs/liveportrait_baseline.json`: 처리시간, 실시간 배수, FPS·해상도·오디오 유무
+- `outputs/liveportrait_work/`: 잘라낸 driving clip, motion template, 공식 원본 출력
+
+표정 강도가 여전히 약할 때만 `driving_multiplier`를 `1.1`처럼 조금 높여 두 번째 비교군을 만듭니다.
+
+```bash
+LIVEPORTRAIT_DRIVING_MULTIPLIER=1.1 \
+LIVEPORTRAIT_OUTPUT=outputs/liveportrait_m110.mp4 \
+LIVEPORTRAIT_REPORT=outputs/liveportrait_m110.json \
+bash scripts/run_liveportrait_ec2.sh
+```
+
+기본값은 공식 권장 흐름인 relative motion, `expression-friendly`, 전체 얼굴 영역, driving-video crop입니다. 이 결과는 아직 원본 프레임에 얼굴만 합성한 최종 face swap이 아니라, 표정 전달 성능을 분리해서 확인하는 중간 기준선입니다. 다음 단계에서 원본 프레임 paste-back, 가림 복원, 경계·조명 보정을 결합합니다.
+
+LivePortrait 코드는 MIT 라이선스지만 기본 얼굴 검출에 포함된 InsightFace 가중치는 비상업 연구 조건입니다. 상용화 시에는 허가된 검출 모델로 교체해야 합니다.
+
 ## JSONL 레코드
 
 한 줄이 하나의 영상 프레임입니다. 좌표는 MediaPipe의 정규화 좌표이며, 얼굴이 검출되지 않은 프레임은 `detected: false`, `faces: []`로 기록합니다.
