@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.DS_Store
+
+# 로컬 모델과 생성 결과
+models/*
+!models/README.md
+outputs/*
+!outputs/.gitkeep
+
+# 대용량 미디어
+*.mp4
+*.mov
+*.avi
+*.mkv
+
+# 동의받은 대체 인물의 로컬 얼굴 이미지
+assets/identities/*/*
+!assets/identities/*/.gitkeep

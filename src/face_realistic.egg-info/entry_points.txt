@@ -1,0 +1,4 @@
+[console_scripts]
+face-track = face_realistic.cli:main
+identity-embed = face_realistic.identity.embedding_cli:main
+identity-register = face_realistic.identity.cli:main

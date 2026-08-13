@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "face-realistic"
+version = "0.1.0"
+description = "MediaPipe-based face performance tracking and pseudonymous face replacement MVP"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mediapipe>=0.10.35,<0.11",
+    "numpy>=1.26,<3",
+    "opencv-contrib-python>=4.10,<5",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+swap = [
+    "insightface>=1.0.1,<2",
+    "onnxruntime>=1.22,<2",
+]
+
+[project.scripts]
+face-track = "face_realistic.cli:main"
+identity-register = "face_realistic.identity.cli:main"
+identity-embed = "face_realistic.identity.embedding_cli:main"
+face-swap = "face_realistic.swap.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
