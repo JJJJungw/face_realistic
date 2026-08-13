@@ -30,6 +30,7 @@ def build_liveportrait_command(
     output_dir: Path,
     device_id: int = 0,
     driving_multiplier: float = 1.0,
+    animation_region: str = "exp",
 ) -> list[str]:
     """Build an upstream CLI command using its documented human-video defaults."""
     return [
@@ -43,7 +44,7 @@ def build_liveportrait_command(
         str(output_dir),
         "--flag_crop_driving_video",
         "--animation_region",
-        "all",
+        animation_region,
         "--driving_option",
         "expression-friendly",
         "--driving_multiplier",
@@ -177,6 +178,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         output_dir=raw_dir,
         device_id=args.device_id,
         driving_multiplier=args.driving_multiplier,
+        animation_region=args.animation_region,
     )
     started = time.perf_counter()
     _run(command, cwd=liveportrait_dir)
@@ -193,7 +195,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "raw_output_path": str(generated),
         "max_seconds": args.max_seconds,
         "device_id": args.device_id,
-        "animation_region": "all",
+        "animation_region": args.animation_region,
         "relative_motion": True,
         "driving_option": "expression-friendly",
         "driving_multiplier": args.driving_multiplier,
@@ -234,6 +236,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-seconds", type=float, default=3.0)
     parser.add_argument("--device-id", type=int, default=0)
     parser.add_argument("--driving-multiplier", type=float, default=1.0)
+    parser.add_argument(
+        "--animation-region",
+        choices=("exp", "pose", "lip", "eyes", "all"),
+        default="exp",
+        help="LivePortrait motion region; exp isolates expression from pose and scale.",
+    )
     return parser
 
 

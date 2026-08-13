@@ -20,8 +20,21 @@ def test_build_liveportrait_command_uses_expression_defaults():
 
     assert command[:2] == ["/lp/.venv/bin/python", "/lp/inference.py"]
     assert "--flag_crop_driving_video" in command
-    assert command[command.index("--animation_region") + 1] == "all"
+    assert command[command.index("--animation_region") + 1] == "exp"
     assert command[command.index("--driving_option") + 1] == "expression-friendly"
+
+
+def test_build_liveportrait_command_allows_all_motion():
+    command = build_liveportrait_command(
+        python=Path("/lp/.venv/bin/python"),
+        liveportrait_dir=Path("/lp"),
+        source_image=Path("/data/source.png"),
+        driving_video=Path("/data/driving.mp4"),
+        output_dir=Path("/data/out"),
+        animation_region="all",
+    )
+
+    assert command[command.index("--animation_region") + 1] == "all"
 
 
 def test_find_generated_video_excludes_concat(tmp_path: Path):

@@ -147,8 +147,8 @@ bash scripts/run_liveportrait_ec2.sh
 
 생성 결과:
 
-- `outputs/liveportrait_baseline.mp4`: 원본의 표정·입·눈·머리 움직임으로 구동한 대체 얼굴 영상과 원본 오디오
-- `outputs/liveportrait_baseline.json`: 처리시간, 실시간 배수, FPS·해상도·오디오 유무
+- `outputs/liveportrait_exp_baseline.mp4`: 머리 pose/scale은 고정하고 원본의 표정만 전달한 대체 얼굴 영상과 원본 오디오
+- `outputs/liveportrait_exp_baseline.json`: 처리시간, 실시간 배수, FPS·해상도·오디오 유무
 - `outputs/liveportrait_work/`: 잘라낸 driving clip, motion template, 공식 원본 출력
 
 표정 강도가 여전히 약할 때만 `driving_multiplier`를 `1.1`처럼 조금 높여 두 번째 비교군을 만듭니다.
@@ -160,7 +160,16 @@ LIVEPORTRAIT_REPORT=outputs/liveportrait_m110.json \
 bash scripts/run_liveportrait_ec2.sh
 ```
 
-기본값은 공식 권장 흐름인 relative motion, `expression-friendly`, 전체 얼굴 영역, driving-video crop입니다. 이 결과는 아직 원본 프레임에 얼굴만 합성한 최종 face swap이 아니라, 표정 전달 성능을 분리해서 확인하는 중간 기준선입니다. 다음 단계에서 원본 프레임 paste-back, 가림 복원, 경계·조명 보정을 결합합니다.
+기본값은 relative motion, `expression-friendly`, 표정 영역(`exp`), driving-video crop입니다. `exp` 실험에서는 대체 얼굴의 머리 pose/scale을 고정해 이전 `all` 실험에서 보인 얼굴 수축·윤곽 왜곡의 원인을 분리합니다. 이 결과는 아직 원본 프레임에 얼굴만 합성한 최종 face swap이 아니라 표정 전달 성능을 확인하는 중간 기준선입니다. 다음 단계에서 원본 MediaPipe pose를 이용한 paste-back, 가림 복원, 경계·조명 보정을 결합합니다.
+
+이전 `all` 조건을 재현하려면 다음 환경변수를 사용합니다.
+
+```bash
+LIVEPORTRAIT_ANIMATION_REGION=all \
+LIVEPORTRAIT_OUTPUT=outputs/liveportrait_all_baseline.mp4 \
+LIVEPORTRAIT_REPORT=outputs/liveportrait_all_baseline.json \
+bash scripts/run_liveportrait_ec2.sh
+```
 
 LivePortrait 코드는 MIT 라이선스지만 기본 얼굴 검출에 포함된 InsightFace 가중치는 비상업 연구 조건입니다. 상용화 시에는 허가된 검출 모델로 교체해야 합니다.
 
