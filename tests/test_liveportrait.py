@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from face_realistic.performance.liveportrait import (
+    _require_executable,
     build_liveportrait_command,
     find_generated_video,
 )
@@ -37,3 +38,14 @@ def test_find_generated_video_rejects_ambiguous_output(tmp_path: Path):
 
     with pytest.raises(RuntimeError, match="Expected one"):
         find_generated_video(tmp_path)
+
+
+def test_virtualenv_python_symlink_is_not_resolved(tmp_path: Path):
+    interpreter = tmp_path / "python-real"
+    interpreter.touch()
+    venv_bin = tmp_path / ".venv/bin"
+    venv_bin.mkdir(parents=True)
+    venv_python = venv_bin / "python"
+    venv_python.symlink_to(interpreter)
+
+    assert _require_executable(venv_python, "Python") == venv_python

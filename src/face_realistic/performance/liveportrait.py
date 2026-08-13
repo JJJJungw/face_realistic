@@ -106,12 +106,27 @@ def _require_file(path: Path, label: str) -> Path:
     return resolved
 
 
+def _require_executable(path: Path, label: str) -> Path:
+    """Validate an executable without resolving a virtualenv Python symlink.
+
+    Python uses the invoked ``.venv/bin/python`` path to discover its virtual
+    environment. Resolving that symlink first would bypass the venv and run the
+    underlying uv-managed interpreter directly.
+    """
+    candidate = path.expanduser().absolute()
+    if not candidate.is_file():
+        raise FileNotFoundError(f"{label} not found: {candidate}")
+    return candidate
+
+
 def run(args: argparse.Namespace) -> dict[str, object]:
     project_root = args.project_root.expanduser().resolve()
     liveportrait_dir = args.liveportrait_dir.expanduser().resolve()
     source_image = _require_file(args.source_image, "Source identity image")
     input_video = _require_file(args.input_video, "Driving video")
-    python = _require_file(liveportrait_dir / ".venv/bin/python", "LivePortrait Python")
+    python = _require_executable(
+        liveportrait_dir / ".venv/bin/python", "LivePortrait Python"
+    )
     _require_file(liveportrait_dir / "inference.py", "LivePortrait inference entrypoint")
 
     output_path = args.output.expanduser().resolve()
