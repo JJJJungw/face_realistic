@@ -98,7 +98,7 @@ models/inswapper_128.onnx
 InSwapper 가중치는 저장소에서 자동 다운로드하지 않습니다. InsightFace에서 별도로 허가받거나 연구 목적으로 적법하게 확보한 모델을 `models/inswapper_128.onnx`에 배치해야 합니다. InsightFace 사전학습 모델은 별도 라이선스가 없다면 비상업 연구용입니다.
 
 ```bash
-uv sync --extra dev --extra swap
+uv sync --extra dev --extra swap --extra swap-cpu
 uv run face-swap --max-seconds 3 --provider auto
 ```
 
@@ -112,16 +112,16 @@ uv run face-swap --max-seconds 3 --provider auto
 Ubuntu 또는 Amazon Linux EC2에 프로젝트와 로컬에서 제외된 미디어·모델 파일을 업로드한 뒤 실행합니다.
 
 ```bash
-bash scripts/setup_ec2.sh
+FACE_SWAP_DEVICE=cpu bash scripts/setup_ec2.sh
 bash scripts/run_swap_ec2.sh
 ```
 
-NVIDIA GPU 인스턴스에서는 드라이버와 CUDA가 정상 설치된 것을 먼저 확인한 다음 CPU용 ONNX Runtime을 GPU 버전으로 교체합니다.
+NVIDIA GPU 인스턴스에서는 `nvidia-smi`로 드라이버가 정상인지 확인한 뒤 GPU extra로 설치합니다.
 
 ```bash
-uv pip uninstall onnxruntime
-uv pip install onnxruntime-gpu
-uv run face-swap --max-seconds 3 --provider cuda
+nvidia-smi
+FACE_SWAP_DEVICE=gpu bash scripts/setup_ec2.sh
+FACE_SWAP_PROVIDER=cuda bash scripts/run_swap_ec2.sh
 ```
 
 CUDA 및 ONNX Runtime 버전 호환성은 EC2의 NVIDIA 드라이버 이미지에 맞춰야 합니다. CPU 인스턴스에서는 기본 `--provider auto`가 CPU를 선택합니다.

@@ -19,9 +19,16 @@ if ! command -v ffmpeg >/dev/null 2>&1; then
   fi
 fi
 
-uv sync --extra dev --extra swap
+face_swap_device="${FACE_SWAP_DEVICE:-cpu}"
+if [[ "$face_swap_device" == "gpu" ]]; then
+  uv sync --extra dev --extra swap --extra swap-gpu
+elif [[ "$face_swap_device" == "cpu" ]]; then
+  uv sync --extra dev --extra swap --extra swap-cpu
+else
+  echo "FACE_SWAP_DEVICE는 cpu 또는 gpu여야 합니다." >&2
+  exit 1
+fi
 
 echo
-echo "CPU 환경 준비 완료"
-echo "GPU EC2라면 README의 CUDA ONNX Runtime 교체 절차를 추가로 실행하세요."
+echo "$face_swap_device 환경 준비 완료"
 echo "그다음 models/inswapper_128.onnx 존재 여부를 확인하세요."

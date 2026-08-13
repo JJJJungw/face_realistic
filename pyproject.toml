@@ -18,8 +18,9 @@ dependencies = [
 dev = ["pytest>=8,<10"]
 swap = [
     "insightface>=1.0.1,<2",
-    "onnxruntime>=1.22,<2",
 ]
+swap-cpu = ["onnxruntime>=1.22,<1.27"]
+swap-gpu = ["onnxruntime-gpu[cuda,cudnn]>=1.22,<1.27"]
 
 [project.scripts]
 face-track = "face_realistic.cli:main"
@@ -33,3 +34,11 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[tool.uv]
+conflicts = [
+    [
+        { extra = "swap-cpu" },
+        { extra = "swap-gpu" },
+    ],
+]

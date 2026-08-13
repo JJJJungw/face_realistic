@@ -31,6 +31,10 @@ class SwapSummary:
 
 def _load_insightface() -> Any:
     try:
+        import onnxruntime as ort
+
+        if "CUDAExecutionProvider" in ort.get_available_providers() and hasattr(ort, "preload_dlls"):
+            ort.preload_dlls(directory="")
         import insightface
         from insightface.app import FaceAnalysis
     except ImportError as exc:
