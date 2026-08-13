@@ -194,6 +194,28 @@ bash scripts/run_liveportrait_ec2.sh
 
 LivePortrait 코드는 MIT 라이선스지만 기본 얼굴 검출에 포함된 InsightFace 가중치는 비상업 연구 조건입니다. 상용화 시에는 허가된 검출 모델로 교체해야 합니다.
 
+### Master 한 장 모션 재생성 + 얼굴 합성
+
+`front_neutral.png` 한 장을 `swap2.mp4`의 포즈·표정으로 재생성한 다음, 재생성 영상 전체를 사용하지 않고 얼굴 안쪽만 원본 장면에 다시 합성하는 PoC입니다. 원본의 배경, 몸, 머리카락과 오디오는 유지됩니다.
+
+```bash
+bash scripts/run_master_reenactment_ec2.sh
+```
+
+생성 결과:
+
+- `outputs/master_reenacted_raw.mp4`: LivePortrait가 만든 중간 재생성 영상
+- `outputs/master_reenactment_swap.mp4`: 재생성된 얼굴만 원본 영상에 합성한 결과
+- `outputs/master_reenactment_swap.json`: 프레임별 정렬 변환과 합성 상태
+
+기본값은 앞 3초입니다. 전체 영상은 `MASTER_MAX_SECONDS=0`으로 실행합니다. 얼굴 경계를 줄이거나 넓힐 때는 `MASTER_MASK_CONTRACT`를 `0.82~0.94` 범위에서 조정할 수 있습니다.
+
+```bash
+MASTER_MASK_CONTRACT=0.84 bash scripts/run_master_reenactment_ec2.sh
+```
+
+현재 버전은 마이크·손처럼 얼굴 앞을 가리는 물체를 별도로 복원하지 않습니다. 이 PoC에서 재생성된 얼굴 모션 자체를 먼저 확인한 뒤 occlusion mask를 추가합니다.
+
 ## 한 명 전용 학습 데이터 준비
 
 현재 `person_01` 한 명으로 전체 학습 흐름이 성립하는지 확인하기 위한 bootstrap 데이터셋 builder입니다. 먼저 로컬에서 렌더링 없이 입력 수와 예상 프레임을 점검할 수 있습니다.

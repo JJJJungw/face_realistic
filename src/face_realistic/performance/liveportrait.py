@@ -141,17 +141,19 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     raw_dir.mkdir(parents=True)
     driving_clip = work_dir / "driving_3s.mp4"
 
-    _run(
+    clip_command = [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-i",
+        str(input_video),
+    ]
+    if args.max_seconds > 0:
+        clip_command.extend(["-t", str(args.max_seconds)])
+    clip_command.extend(
         [
-            "ffmpeg",
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-y",
-            "-i",
-            str(input_video),
-            "-t",
-            str(args.max_seconds),
             "-map",
             "0:v:0",
             "-map",
@@ -169,6 +171,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             str(driving_clip),
         ]
     )
+    _run(clip_command)
 
     command = build_liveportrait_command(
         python=python,
@@ -247,8 +250,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = build_parser().parse_args()
-    if args.max_seconds <= 0:
-        raise SystemExit("--max-seconds must be greater than zero")
+    if args.max_seconds < 0:
+        raise SystemExit("--max-seconds must be zero (full video) or greater")
     if args.driving_multiplier <= 0:
         raise SystemExit("--driving-multiplier must be greater than zero")
     run(args)
