@@ -7,14 +7,23 @@ if ! command -v uv >/dev/null 2>&1; then
   export PATH="$HOME/.local/bin:$PATH"
 fi
 
-if ! command -v ffmpeg >/dev/null 2>&1; then
+need_ffmpeg=0
+need_gles=0
+command -v ffmpeg >/dev/null 2>&1 || need_ffmpeg=1
+ldconfig -p 2>/dev/null | grep -q 'libGLESv2\.so\.2' || need_gles=1
+
+if (( need_ffmpeg || need_gles )); then
   if command -v apt-get >/dev/null 2>&1; then
+    packages=(libgl1 libegl1 libgles2 libglib2.0-0)
+    (( need_ffmpeg )) && packages+=(ffmpeg)
     sudo apt-get update
-    sudo apt-get install -y ffmpeg libgl1 libglib2.0-0
+    sudo apt-get install -y "${packages[@]}"
   elif command -v dnf >/dev/null 2>&1; then
-    sudo dnf install -y ffmpeg-free mesa-libGL glib2
+    packages=(mesa-libGL mesa-libEGL mesa-libGLES glib2)
+    (( need_ffmpeg )) && packages+=(ffmpeg-free)
+    sudo dnf install -y "${packages[@]}"
   else
-    echo "지원되지 않는 패키지 관리자입니다. ffmpeg와 OpenGL 런타임을 직접 설치하세요." >&2
+    echo "지원되지 않는 패키지 관리자입니다. FFmpeg와 EGL/GLES 런타임을 직접 설치하세요." >&2
     exit 1
   fi
 fi

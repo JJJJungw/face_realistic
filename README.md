@@ -130,6 +130,8 @@ CUDA 및 ONNX Runtime 버전 호환성은 EC2의 NVIDIA 드라이버 이미지�
 
 InSwapper가 약화한 입 모양과 눈 깜빡임을 복구하기 위해 MediaPipe 랜드마크로 원본 눈·눈꺼풀·입술·입 내부를 soft mask 합성하는 실험입니다. 기존 swap 결과를 덮지 않습니다.
 
+Ubuntu에서는 MediaPipe 네이티브 런타임에 `libegl1`과 `libgles2`가 필요합니다. `scripts/setup_ec2.sh`가 FFmpeg 설치 여부와 별개로 이 공유 라이브러리들을 확인하고 설치합니다.
+
 ```bash
 FACE_SWAP_PROVIDER=cuda bash scripts/run_passthrough_ec2.sh
 ```
