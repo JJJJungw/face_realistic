@@ -14,14 +14,7 @@ test -f models/inswapper_128.onnx || {
   echo "models/inswapper_128.onnx가 없습니다." >&2
   exit 1
 }
-test -f models/face_detection_yunet_2023mar.onnx || {
-  echo "models/face_detection_yunet_2023mar.onnx가 없습니다." >&2
-  exit 1
-}
-test -f models/face_recognition_sface_2021dec.onnx || {
-  echo "models/face_recognition_sface_2021dec.onnx가 없습니다." >&2
-  exit 1
-}
+# YuNet·SFace·FaceLandmarker 는 없으면 OpenCV Zoo / MediaPipe 에서 자동으로 내려받는다.
 test -x .venv/bin/swap-ablation || {
   echo "swap-ablation 진입점이 없습니다. 'uv sync --extra dev --extra swap --extra swap-gpu'를 다시 실행하세요." >&2
   exit 1

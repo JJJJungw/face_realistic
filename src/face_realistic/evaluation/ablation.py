@@ -28,7 +28,7 @@ import cv2
 import numpy as np
 
 from face_realistic.identity.embedding import SFACE_LFW_COSINE_THRESHOLD, SFaceEmbedder, cosine_similarity
-from face_realistic.io.model import ensure_face_landmarker_model
+from face_realistic.io.model import ensure_face_landmarker_model, ensure_opencv_face_models
 from face_realistic.swap.baseline import _largest_face, _load_insightface, resolve_providers
 from face_realistic.swap.regions import build_region_mask, composite
 
@@ -247,6 +247,7 @@ def measure(
     manifest, frames = _load_cache(cache_dir)
     if not frames:
         raise RuntimeError("캐시에 프레임이 없습니다.")
+    yunet_path, sface_path = ensure_opencv_face_models(yunet_path, sface_path)
     embedder = SFaceEmbedder(yunet_path, sface_path)
     mp_module, landmarker = _landmarker(landmarker_model_path, video_mode=False)
 
