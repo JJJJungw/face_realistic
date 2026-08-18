@@ -30,6 +30,7 @@ face-swap = "face_realistic.swap.cli:main"
 liveportrait-run = "face_realistic.performance.liveportrait:main"
 reenactment-compose = "face_realistic.performance.reenactment_compositor:main"
 dataset-build = "face_realistic.dataset.builder:main"
+swap-ablation = "face_realistic.evaluation.ablation:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
