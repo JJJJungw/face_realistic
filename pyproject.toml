@@ -7,7 +7,7 @@ name = "face-realistic"
 version = "0.1.0"
 description = "MediaPipe-based face performance tracking and pseudonymous face replacement MVP"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.13"
 dependencies = [
     "mediapipe>=0.10.35,<0.11",
     "numpy>=1.26,<3",
@@ -21,6 +21,7 @@ swap = [
 ]
 swap-cpu = ["onnxruntime>=1.22,<1.27"]
 swap-gpu = ["onnxruntime-gpu[cuda,cudnn]>=1.22,<1.27"]
+train = ["torch>=2.3,<2.4"]
 
 [project.scripts]
 face-track = "face_realistic.cli:main"
@@ -31,6 +32,7 @@ liveportrait-run = "face_realistic.performance.liveportrait:main"
 reenactment-compose = "face_realistic.performance.reenactment_compositor:main"
 dataset-build = "face_realistic.dataset.builder:main"
 swap-ablation = "face_realistic.evaluation.ablation:main"
+face-swap-train = "face_realistic.modeling.train:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -44,5 +46,9 @@ conflicts = [
     [
         { extra = "swap-cpu" },
         { extra = "swap-gpu" },
+    ],
+    [
+        { extra = "swap-gpu" },
+        { extra = "train" },
     ],
 ]

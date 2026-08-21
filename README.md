@@ -194,6 +194,44 @@ bash scripts/run_liveportrait_ec2.sh
 
 LivePortrait 코드는 MIT 라이선스지만 기본 얼굴 검출에 포함된 InsightFace 가중치는 비상업 연구 조건입니다. 상용화 시에는 허가된 검출 모델로 교체해야 합니다.
 
+## 자체 256×256 Face Swap 모델
+
+GHOST v1의 Apache-2.0 one-shot identity/attribute/AAD 계열을 설계 기준으로
+삼은 독립 PyTorch 구현입니다. GHOST 또는 InSwapper 가중치와 코드를
+불러오거나 증류하지 않습니다. 첫 단계는 `person_01`의 등록 이미지로
+forward/backward와 한 identity 과적합 가능성만 검증합니다.
+
+EC2의 별도 `.venv-train`에 PyTorch 2.3 계열 학습 의존성을 설치합니다.
+기존 InSwapper용 `.venv`는 변경하지 않습니다.
+
+```bash
+bash scripts/setup_training_ec2.sh
+```
+
+EC2에도 로컬과 동일한 38개 identity 이미지와 다시 생성한 등록 manifest가
+있어야 합니다. `identity_image_count: 1`인 상태에서는 학습을 시작하지
+않습니다. 준비되면 10 step CUDA smoke test를 실행합니다.
+
+```bash
+bash scripts/run_training_smoke_ec2.sh
+```
+
+생성 결과:
+
+- `outputs/training/person_01_overfit/checkpoint.pt`: 처음부터 학습한 자체 가중치
+- `outputs/training/person_01_overfit/preview.jpg`: source, target, 저주파 target, RGB, composite, alpha 비교
+- `outputs/training/person_01_overfit/report.json`: 모델 구성, 파라미터 수, loss와 라이선스 경계
+
+smoke test가 정상적으로 끝난 뒤에만 step 수를 늘립니다.
+
+```bash
+TRAIN_STEPS=1000 TRAIN_BATCH_SIZE=4 bash scripts/run_training_smoke_ec2.sh
+```
+
+현재 1인 학습은 최적화 검증일 뿐 범용 identity 분리를 증명하지 않습니다.
+모델 구조와 확장 단계는 `docs/architecture.md`, 외부 코드·가중치 경계는
+`THIRD_PARTY_NOTICES.md`에 기록합니다.
+
 ### Master 한 장 모션 재생성 + 얼굴 합성
 
 `front_neutral.png` 한 장을 `swap2.mp4`의 포즈·표정으로 재생성한 다음, 재생성 영상 전체를 사용하지 않고 얼굴 안쪽만 원본 장면에 다시 합성하는 PoC입니다. 원본의 배경, 몸, 머리카락과 오디오는 유지됩니다.
