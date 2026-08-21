@@ -6,6 +6,7 @@ __pycache__/
 .venv/
 .venv-train/
 venv/
+*.egg-info/
 third_party/
 .DS_Store
 

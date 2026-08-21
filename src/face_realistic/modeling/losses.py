@@ -35,10 +35,12 @@ class ReconstructionObjective(nn.Module):
     def forward(
         self, outputs: dict[str, Tensor], target: Tensor, face_mask: Tensor
     ) -> dict[str, Tensor]:
+        safe_mask = face_mask.clamp(0.0, 1.0)
+        safe_alpha = outputs["alpha"].clamp(1e-6, 1.0 - 1e-6)
         composite = F.l1_loss(outputs["composite"], target)
-        face = F.l1_loss(outputs["generated"] * face_mask, target * face_mask)
-        alpha = F.binary_cross_entropy(outputs["alpha"], face_mask)
-        edges = gradient_loss(outputs["generated"], target, face_mask)
+        face = F.l1_loss(outputs["generated"] * safe_mask, target * safe_mask)
+        alpha = F.binary_cross_entropy(safe_alpha, safe_mask)
+        edges = gradient_loss(outputs["generated"], target, safe_mask)
         total = (
             self.weights.composite * composite
             + self.weights.face * face
@@ -52,4 +54,3 @@ class ReconstructionObjective(nn.Module):
             "alpha": alpha.detach(),
             "gradient": edges.detach(),
         }
-

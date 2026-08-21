@@ -58,6 +58,10 @@ def make_oval_mask(size: int) -> Tensor:
         lineType=cv2.LINE_AA,
     )
     mask = cv2.GaussianBlur(mask, (0, 0), max(1.0, size * 0.015))
+    # OpenCV's float blur can overshoot 1.0 by a few ULPs. CUDA BCE treats
+    # even that tiny overshoot as an invalid target and raises a device-side
+    # assertion, so enforce the probability range before creating the tensor.
+    mask = np.clip(mask, 0.0, 1.0)
     return torch.from_numpy(mask[None, ...])
 
 
@@ -166,4 +170,3 @@ class IdentityStillDataset(Dataset[dict[str, Tensor]]):
             "motion": self._motion(record),
             "face_mask": self.mask.clone(),
         }
-

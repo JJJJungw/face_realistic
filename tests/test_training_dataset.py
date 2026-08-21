@@ -7,7 +7,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from face_realistic.modeling.dataset import IdentityStillDataset, split_records
+from face_realistic.modeling.dataset import IdentityStillDataset, make_oval_mask, split_records
 
 
 def _write_image(path: Path, value: int) -> None:
@@ -62,3 +62,10 @@ def test_split_records_is_deterministic():
     assert first[0]
     assert first[1]
 
+
+def test_oval_mask_stays_in_probability_range():
+    mask = make_oval_mask(256)
+
+    assert torch.isfinite(mask).all()
+    assert mask.min().item() >= 0.0
+    assert mask.max().item() <= 1.0
