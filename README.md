@@ -29,6 +29,16 @@ Face Swap 품질을 제공하지 않습니다. 로컬 또는 EC2의 학습 환�
   tests/test_v1_compositor.py
 ```
 
+EC2 GPU에서는 단위 테스트와 256px 무작위 초기화 forward 벤치마크를 한 번에
+실행합니다.
+
+```bash
+bash scripts/run_v1_architecture_smoke_ec2.sh
+```
+
+이 벤치마크의 FPS는 generator 단독 구조 비용이며 얼굴 검출, tracking,
+MediaPipe, compositor와 영상 인코딩은 포함하지 않습니다.
+
 MediaPipe 기반 얼굴 퍼포먼스 추적과 실사 얼굴 가명화를 실험하기 위한 MVP입니다. 현재 1단계는 영상에서 478개 얼굴 랜드마크, 52개 블렌드셰이프, 4x4 얼굴 변환행렬과 머리 자세를 프레임별로 추출합니다.
 
 ## 빠른 시작
