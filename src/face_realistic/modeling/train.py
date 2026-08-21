@@ -50,6 +50,19 @@ def _save_preview(path: Path, batch: dict[str, torch.Tensor], outputs: dict[str,
         _to_image(outputs["composite"][0]),
         alpha_image,
     ]
+    labels = ("SOURCE ID", "TRAIN TARGET", "TARGET INPUT", "GENERATED", "COMPOSITE", "ALPHA")
+    for panel, label in zip(panels, labels, strict=True):
+        cv2.rectangle(panel, (0, 0), (panel.shape[1], 28), (20, 20, 20), thickness=-1)
+        cv2.putText(
+            panel,
+            label,
+            (8, 19),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.48,
+            (255, 255, 255),
+            1,
+            cv2.LINE_AA,
+        )
     path.parent.mkdir(parents=True, exist_ok=True)
     cv2.imwrite(str(path), np.hstack(panels))
 
@@ -78,6 +91,7 @@ def run_training(args: argparse.Namespace) -> dict[str, object]:
         identity_dim=args.identity_dim,
         motion_embedding_dim=args.motion_embedding_dim,
         target_bottleneck=args.target_bottleneck,
+        condition_mode=args.condition_mode,
     )
     model = CleanRoomFaceSwapModel(config).to(device)
     objective = ReconstructionObjective().to(device)
@@ -137,7 +151,7 @@ def run_training(args: argparse.Namespace) -> dict[str, object]:
     report = {
         "schema_version": 1,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "pipeline": "clean-room GHOST-inspired one-identity reconstruction baseline",
+        "pipeline": f"clean-room {args.condition_mode} one-identity reconstruction baseline",
         "device": str(device),
         "torch_version": torch.__version__,
         "dataset": asdict(dataset.info),
@@ -155,6 +169,11 @@ def run_training(args: argparse.Namespace) -> dict[str, object]:
             "one identity cannot validate identity disentanglement",
             "the first objective has no pretrained identity or perceptual loss",
             "still images cannot validate temporal consistency",
+            *(
+                ["motion-only conditioning has no spatial landmark or geometry map"]
+                if args.condition_mode == "motion_only"
+                else ["the low-frequency target can leak target identity"]
+            ),
         ],
         "license_boundary": (
             "No InSwapper or GHOST checkpoint is loaded. Model weights are initialized "
@@ -182,6 +201,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--image-size", type=int, default=256)
     parser.add_argument("--target-bottleneck", type=int, default=16)
+    parser.add_argument(
+        "--condition-mode",
+        choices=("target_lowpass", "motion_only"),
+        default="motion_only",
+    )
     parser.add_argument("--base-channels", type=int, default=32)
     parser.add_argument("--max-channels", type=int, default=256)
     parser.add_argument("--identity-dim", type=int, default=256)
@@ -209,4 +233,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

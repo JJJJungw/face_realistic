@@ -228,6 +228,27 @@ smoke test가 정상적으로 끝난 뒤에만 step 수를 늘립니다.
 TRAIN_STEPS=1000 TRAIN_BATCH_SIZE=4 bash scripts/run_training_smoke_ec2.sh
 ```
 
+기본 학습 조건은 `motion_only`입니다. 이 모드에서는 Target 얼굴 RGB가
+generator에 전달되지 않고, Source identity와 51개 blendshape 및 3개
+head-pose 값만으로 얼굴을 생성합니다. 미리보기의 `TARGET INPUT` 패널이
+검게 표시되는 것이 정상이며, 이전 저주파 Target 실험의 신원 누출 경로를
+차단하기 위한 조건입니다. 2,000 step 결과는 이전 체크포인트와 분리합니다.
+
+```bash
+TRAIN_CONDITION_MODE=motion_only \
+TRAIN_STEPS=2000 \
+TRAIN_OUTPUT_DIR=outputs/training/person_01_motion_2k \
+bash scripts/run_training_smoke_ec2.sh
+```
+
+motion-only 체크포인트의 3초 영상 추론:
+
+```bash
+INFERENCE_CHECKPOINT=outputs/training/person_01_motion_2k/checkpoint.pt \
+INFERENCE_OUTPUT=outputs/cleanroom_motion_swap_3s.mp4 \
+bash scripts/run_cleanroom_inference_ec2.sh
+```
+
 2,000 step 체크포인트를 `swap2.mp4` 앞 3초에 적용하려면 다음을 실행합니다.
 MediaPipe가 프레임마다 얼굴을 정렬하고 51개 blendshape와 3개 head-pose 값을
 추출합니다. 모델이 생성한 256px 얼굴과 alpha는 원본 좌표로 역변환되며,

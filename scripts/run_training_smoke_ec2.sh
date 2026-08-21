@@ -10,11 +10,15 @@ if [[ ! -x "${TRAIN_PYTHON}" ]]; then
   exit 1
 fi
 
+CONDITION_MODE="${TRAIN_CONDITION_MODE:-motion_only}"
+DEFAULT_OUTPUT="${PROJECT_ROOT}/outputs/training/person_01_${CONDITION_MODE}"
+
 "${TRAIN_PYTHON}" -m face_realistic.modeling.train \
   --project-root "${PROJECT_ROOT}" \
   --manifest "${TRAIN_MANIFEST:-${PROJECT_ROOT}/outputs/identity_registry/person_01/manifest.json}" \
-  --output-dir "${TRAIN_OUTPUT_DIR:-${PROJECT_ROOT}/outputs/training/person_01_overfit}" \
+  --output-dir "${TRAIN_OUTPUT_DIR:-${DEFAULT_OUTPUT}}" \
   --image-size "${TRAIN_IMAGE_SIZE:-256}" \
+  --condition-mode "${CONDITION_MODE}" \
   --target-bottleneck "${TRAIN_TARGET_BOTTLENECK:-16}" \
   --base-channels "${TRAIN_BASE_CHANNELS:-32}" \
   --max-channels "${TRAIN_MAX_CHANNELS:-256}" \

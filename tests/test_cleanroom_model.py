@@ -35,7 +35,14 @@ def test_cleanroom_model_forward_backward():
 
 def test_target_identity_suppression_reduces_spatial_resolution():
     model = CleanRoomFaceSwapModel(
-        ModelConfig(motion_dim=4, image_size=32, base_channels=8, max_channels=32, target_bottleneck=2)
+        ModelConfig(
+            motion_dim=4,
+            image_size=32,
+            base_channels=8,
+            max_channels=32,
+            target_bottleneck=2,
+            condition_mode="target_lowpass",
+        )
     )
     target = torch.randn(1, 3, 32, 32)
 
@@ -44,3 +51,29 @@ def test_target_identity_suppression_reduces_spatial_resolution():
     assert suppressed.shape == target.shape
     assert not torch.allclose(suppressed, target)
 
+
+def test_motion_only_generation_cannot_read_target_pixels():
+    model = CleanRoomFaceSwapModel(
+        ModelConfig(
+            motion_dim=4,
+            image_size=32,
+            base_channels=8,
+            max_channels=32,
+            identity_dim=16,
+            motion_embedding_dim=8,
+            target_bottleneck=2,
+            condition_mode="motion_only",
+        )
+    ).eval()
+    source = torch.randn(1, 3, 32, 32)
+    first_target = torch.full((1, 3, 32, 32), -1.0)
+    second_target = torch.full((1, 3, 32, 32), 1.0)
+    motion = torch.randn(1, 4)
+
+    first = model(source, first_target, motion)
+    second = model(source, second_target, motion)
+
+    assert torch.equal(first["generated"], second["generated"])
+    assert torch.equal(first["alpha"], second["alpha"])
+    assert torch.all(first["suppressed_target"] == -1.0)
+    assert not torch.equal(first["composite"], second["composite"])

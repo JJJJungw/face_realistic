@@ -157,6 +157,34 @@ class AADResidualBlock(nn.Module):
         return inputs + output
 
 
+class StyleDenorm(nn.Module):
+    """Apply identity/motion style without any target RGB feature."""
+
+    def __init__(self, channels: int, style_dim: int):
+        super().__init__()
+        self.norm = nn.InstanceNorm2d(channels, affine=False)
+        self.style = nn.Linear(style_dim, channels * 2)
+
+    def forward(self, inputs: Tensor, style: Tensor) -> Tensor:
+        gamma, beta = self.style(style).chunk(2, dim=1)
+        return (1.0 + gamma[:, :, None, None]) * self.norm(inputs) + beta[:, :, None, None]
+
+
+class StyleResidualBlock(nn.Module):
+    def __init__(self, channels: int, style_dim: int):
+        super().__init__()
+        self.style1 = StyleDenorm(channels, style_dim)
+        self.style2 = StyleDenorm(channels, style_dim)
+        self.conv1 = nn.Conv2d(channels, channels, 3, padding=1)
+        self.conv2 = nn.Conv2d(channels, channels, 3, padding=1)
+        self.activation = nn.SiLU(inplace=True)
+
+    def forward(self, inputs: Tensor, style: Tensor) -> Tensor:
+        output = self.conv1(self.activation(self.style1(inputs, style)))
+        output = self.conv2(self.activation(self.style2(output, style)))
+        return inputs + output
+
+
 class AADGenerator(nn.Module):
     def __init__(self, attribute_channels: list[int], style_dim: int):
         super().__init__()
@@ -190,6 +218,43 @@ class AADGenerator(nn.Module):
         return self.rgb_head(output), self.alpha_head(output)
 
 
+class MotionOnlyGenerator(nn.Module):
+    """Generate a canonical face from identity and motion without target pixels."""
+
+    def __init__(
+        self,
+        *,
+        image_size: int,
+        base_channels: int,
+        max_channels: int,
+        style_dim: int,
+    ):
+        super().__init__()
+        self.seed_size = image_size // 16
+        self.constant = nn.Parameter(torch.randn(1, max_channels, self.seed_size, self.seed_size) * 0.02)
+        self.deep_block = StyleResidualBlock(max_channels, style_dim)
+        channels = [max_channels, max_channels // 2, max_channels // 4, base_channels]
+        self.upsample_projections = nn.ModuleList()
+        self.blocks = nn.ModuleList()
+        current = max_channels
+        for output_channels in channels:
+            output_channels = max(base_channels, output_channels)
+            self.upsample_projections.append(ConvNormAct(current, output_channels))
+            self.blocks.append(StyleResidualBlock(output_channels, style_dim))
+            current = output_channels
+        self.rgb_head = nn.Sequential(nn.Conv2d(current, 3, 3, padding=1), nn.Tanh())
+        self.alpha_head = nn.Sequential(nn.Conv2d(current, 1, 3, padding=1), nn.Sigmoid())
+
+    def forward(self, style: Tensor) -> tuple[Tensor, Tensor]:
+        output = self.constant.expand(style.shape[0], -1, -1, -1)
+        output = self.deep_block(output, style)
+        for projection, block in zip(self.upsample_projections, self.blocks, strict=True):
+            output = F.interpolate(output, scale_factor=2.0, mode="bilinear", align_corners=False)
+            output = projection(output)
+            output = block(output, style)
+        return self.rgb_head(output), self.alpha_head(output)
+
+
 @dataclass(frozen=True, slots=True)
 class ModelConfig:
     motion_dim: int
@@ -199,8 +264,9 @@ class ModelConfig:
     identity_dim: int = 256
     motion_embedding_dim: int = 128
     target_bottleneck: int = 16
+    condition_mode: str = "target_lowpass"
 
-    def to_dict(self) -> dict[str, int]:
+    def to_dict(self) -> dict[str, int | str]:
         return asdict(self)
 
 
@@ -213,14 +279,27 @@ class CleanRoomFaceSwapModel(nn.Module):
             raise ValueError("image_size must be >= 32 and divisible by 16")
         if not 2 <= config.target_bottleneck <= config.image_size:
             raise ValueError("target_bottleneck must be between 2 and image_size")
+        if config.condition_mode not in {"target_lowpass", "motion_only"}:
+            raise ValueError("condition_mode must be target_lowpass or motion_only")
         self.config = config
         self.identity_encoder = IdentityEncoder(
             config.base_channels, config.max_channels, config.identity_dim
         )
-        self.attribute_encoder = AttributeEncoder(config.base_channels, config.max_channels)
         self.motion_encoder = MotionEncoder(config.motion_dim, config.motion_embedding_dim)
         style_dim = config.identity_dim + config.motion_embedding_dim
-        self.generator = AADGenerator(self.attribute_encoder.channels, style_dim)
+        if config.condition_mode == "target_lowpass":
+            self.attribute_encoder: AttributeEncoder | None = AttributeEncoder(
+                config.base_channels, config.max_channels
+            )
+            self.generator: nn.Module = AADGenerator(self.attribute_encoder.channels, style_dim)
+        else:
+            self.attribute_encoder = None
+            self.generator = MotionOnlyGenerator(
+                image_size=config.image_size,
+                base_channels=config.base_channels,
+                max_channels=config.max_channels,
+                style_dim=style_dim,
+            )
 
     def suppress_target_identity(self, target: Tensor) -> Tensor:
         coarse = F.adaptive_avg_pool2d(
@@ -232,11 +311,19 @@ class CleanRoomFaceSwapModel(nn.Module):
         if source.shape != target.shape or source.ndim != 4 or source.shape[1] != 3:
             raise ValueError("source and target must have matching BCHW RGB shapes")
         identity = self.identity_encoder(source)
-        suppressed_target = self.suppress_target_identity(target)
-        attributes = self.attribute_encoder(suppressed_target)
         motion_embedding = self.motion_encoder(motion)
         style = torch.cat((identity, motion_embedding), dim=1)
-        generated, alpha = self.generator(attributes, style)
+        if self.config.condition_mode == "target_lowpass":
+            suppressed_target = self.suppress_target_identity(target)
+            if self.attribute_encoder is None:
+                raise RuntimeError("target_lowpass requires an attribute encoder")
+            attributes = self.attribute_encoder(suppressed_target)
+            generated, alpha = self.generator(attributes, style)
+        else:
+            # Keep the common output contract for previews while proving that
+            # no target pixel reaches the generator.
+            suppressed_target = torch.full_like(target, -1.0)
+            generated, alpha = self.generator(style)
         composite = generated * alpha + target * (1.0 - alpha)
         return {
             "generated": generated,
@@ -245,4 +332,3 @@ class CleanRoomFaceSwapModel(nn.Module):
             "identity": identity,
             "suppressed_target": suppressed_target,
         }
-
