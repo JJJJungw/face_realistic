@@ -1,9 +1,20 @@
 # Clean-room face-swap architecture
 
-## Decision
+> 이 문서는 실패 원인 추적을 위한 v0 기록이다. 현재 설계 초안은
+> [`architecture_v1_draft.md`](architecture_v1_draft.md)를 따른다.
 
-The first trainable baseline follows the permissively licensed one-shot
-identity/attribute/AAD family exemplified by GHOST v1 (Apache-2.0). The code in
+## Product goal
+
+모든 아키텍처 결정은 [`../PROJECT_GOAL.md`](../PROJECT_GOAL.md)에 정의된
+제품 목표와 합격 조건을 따른다. 특정 논문이나 모델은 목표가 아니라 교체
+가능한 구현 레퍼런스다.
+
+## Historical version 0 decision
+
+The first experimental trainable baseline followed the permissively licensed
+one-shot identity/attribute/AAD family exemplified by GHOST v1 (Apache-2.0). It
+is retained as an optimization experiment, not as the selected final
+architecture. The code in
 `src/face_realistic/modeling/` is an independent PyTorch implementation and
 does not copy, load, distill, or depend on GHOST or InSwapper checkpoints.
 
@@ -38,4 +49,3 @@ expression controls that a low-resolution target cannot preserve reliably.
 4. Add eye, lip-aperture, gaze, occlusion, and temporal objectives.
 5. Export the generator to ONNX and compare against the frozen InSwapper
    research baseline for quality, identity leakage, and runtime.
-

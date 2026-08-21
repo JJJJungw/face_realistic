@@ -1,5 +1,34 @@
 # Face Realistic
 
+> **원본 인물의 연기와 장면은 유지하고, master의 얼굴 신원만 적용해 InSwapper 형태의 자연스러운 Face Swap 영상을 만든다.**
+
+이 문장이 프로젝트의 최상위 목표입니다. 구체적인 입력·출력, MVP 합격 조건과
+비목표는 [`PROJECT_GOAL.md`](PROJECT_GOAL.md)에 고정합니다.
+현재 모델·학습·합성 설계는
+[`docs/architecture_v1_draft.md`](docs/architecture_v1_draft.md)에 정리합니다.
+
+### FRS-v1 아키텍처 초안
+
+새로운 v1 코드는 기존 GHOST-inspired v0 실험과 분리되어 있습니다.
+
+- `src/face_realistic/modeling/v1/`: 다중 master reference, MediaPipe geometry
+  map, identity-suppressed target conditions, partial identity modulation,
+  RGB/alpha/visibility/confidence 출력
+- `src/face_realistic/compositing/`: occlusion-aware alpha, 경량 색상 보정,
+  inverse-warp paste-back과 alpha 밖 원본 픽셀 보존
+
+기본 256px 구성은 약 2,287만 parameter입니다. 현재 코드는 아키텍처와 tensor
+계약을 검증하는 **무작위 초기화 골격**이며, 아직 학습 가중치나 사용할 수 있는
+Face Swap 품질을 제공하지 않습니다. 로컬 또는 EC2의 학습 환경에서 구조 테스트를
+실행할 수 있습니다.
+
+```bash
+.venv-train/bin/python -m pytest -q \
+  tests/test_v1_geometry.py \
+  tests/test_v1_model.py \
+  tests/test_v1_compositor.py
+```
+
 MediaPipe 기반 얼굴 퍼포먼스 추적과 실사 얼굴 가명화를 실험하기 위한 MVP입니다. 현재 1단계는 영상에서 478개 얼굴 랜드마크, 52개 블렌드셰이프, 4x4 얼굴 변환행렬과 머리 자세를 프레임별로 추출합니다.
 
 ## 빠른 시작
