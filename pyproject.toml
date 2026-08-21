@@ -33,6 +33,7 @@ reenactment-compose = "face_realistic.performance.reenactment_compositor:main"
 dataset-build = "face_realistic.dataset.builder:main"
 swap-ablation = "face_realistic.evaluation.ablation:main"
 face-swap-train = "face_realistic.modeling.train:main"
+face-swap-infer = "face_realistic.modeling.infer:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

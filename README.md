@@ -228,6 +228,29 @@ smoke test가 정상적으로 끝난 뒤에만 step 수를 늘립니다.
 TRAIN_STEPS=1000 TRAIN_BATCH_SIZE=4 bash scripts/run_training_smoke_ec2.sh
 ```
 
+2,000 step 체크포인트를 `swap2.mp4` 앞 3초에 적용하려면 다음을 실행합니다.
+MediaPipe가 프레임마다 얼굴을 정렬하고 51개 blendshape와 3개 head-pose 값을
+추출합니다. 모델이 생성한 256px 얼굴과 alpha는 원본 좌표로 역변환되며,
+얼굴이 검출되지 않은 프레임은 원본을 유지합니다.
+
+```bash
+bash scripts/run_cleanroom_inference_ec2.sh
+```
+
+생성 결과:
+
+- `outputs/cleanroom_swap_3s.mp4`: 자체 체크포인트를 사용한 3초 합성 영상과 원본 오디오
+- `outputs/cleanroom_swap_3s.json`: 프레임별 생성 여부, 처리시간, 얼굴 영역과 alpha 면적
+
+다른 체크포인트나 전체 영상을 처리할 때는 환경변수를 지정합니다.
+
+```bash
+INFERENCE_CHECKPOINT=outputs/training/person_01_2k/checkpoint.pt \
+INFERENCE_MAX_SECONDS=0 \
+INFERENCE_OUTPUT=outputs/cleanroom_swap_full.mp4 \
+bash scripts/run_cleanroom_inference_ec2.sh
+```
+
 현재 1인 학습은 최적화 검증일 뿐 범용 identity 분리를 증명하지 않습니다.
 모델 구조와 확장 단계는 `docs/architecture.md`, 외부 코드·가중치 경계는
 `THIRD_PARTY_NOTICES.md`에 기록합니다.
